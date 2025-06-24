@@ -1,5 +1,6 @@
 Backend:
 AWS_SECRET_ACCESS_KEY=...
+AWS_ACCESS_KEY_ID=...
 
 Frontend:
 .env.development: REACT_APP_API_BASE=http://localhost:8080
