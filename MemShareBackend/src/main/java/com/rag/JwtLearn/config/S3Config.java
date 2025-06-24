@@ -9,6 +9,8 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
+import io.github.cdimascio.dotenv.Dotenv;
+
 import java.net.URI;
 
 @Configuration
