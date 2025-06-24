@@ -1,3 +1,5 @@
+Development:
+
 Backend:
 in file: 'application-secret.properties':
 AWS_SECRET_ACCESS_KEY=...
@@ -9,4 +11,10 @@ in file: '.env': REACT_APP_API_BASE=...
 
 
 
-*** when pushing follow link to allow secret and say false positive for application.properties (AWS access key id and secret key)
+Deployment:
+change application.properties to:
+get AWS keys from ${AWS_SECRET_ACCESS_KEY} and ${AWS_ACCESS_KEY_ID}
+get datasource url from ${POSTGRES_URL}
+
+in ECS after pushing backend docker image, add AWS_ACCESS_KEY_ID & AWS_SECRET_ACCESS_KEY as environment variables (task definitions)
+also add POSTGRES_URL as environment variable

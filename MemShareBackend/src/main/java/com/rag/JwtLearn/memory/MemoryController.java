@@ -95,6 +95,40 @@ public class MemoryController {
     }
 
     /**
+     * Delete memory
+     */
+    @DeleteMapping("/{memoryId}")
+    public ResponseEntity<Void> deleteMemory(
+            @PathVariable Long memoryId,
+            Authentication authentication) {
+        
+        try {
+            log.info("Deleting memory with ID: {}", memoryId);
+            
+            User user = getCurrentUser(authentication);
+            Memory memory = memoryRepository.findById(memoryId)
+                    .orElseThrow(() -> new RuntimeException("Memory not found"));
+            
+            // Check if user owns the memory or if user is admin
+            if (!memory.getUser().getId().equals(user.getId()) && user.getRole() != Role.ADMIN) {
+                log.warn("Unauthorized delete attempt for memory {} by user {}", memoryId, user.getId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
+            memoryRepository.delete(memory);
+            log.info("Memory deleted successfully: {}", memoryId);
+            return ResponseEntity.noContent().build();
+            
+        } catch (RuntimeException e) {
+            log.error("Error deleting memory {}: {}", memoryId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            log.error("Unexpected error deleting memory {}: {}", memoryId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
      * Create memory without authentication (for testing)
      */
     @PostMapping("/test-create")
