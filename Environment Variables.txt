@@ -5,3 +5,8 @@ AWS_ACCESS_KEY_ID=...
 
 Frontend:
 in file: '.env': REACT_APP_API_BASE=...
+
+
+
+
+*** when pushing follow link to allow secret and say false positive for application.properties (AWS access key id and secret key)
