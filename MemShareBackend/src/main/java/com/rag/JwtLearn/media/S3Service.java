@@ -8,6 +8,8 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,6 +23,7 @@ import java.util.UUID;
 public class S3Service {
     
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
     
     @Value("${aws.s3.bucket-name}")
     private String bucketName;
@@ -33,8 +36,14 @@ public class S3Service {
      */
     public Media uploadFile(MultipartFile file, Long memoryId, Long userId) throws IOException {
         try {
+            log.info("Starting file upload for memory {} by user {}", memoryId, userId);
+            log.info("File details: name={}, size={}, contentType={}", 
+                    file.getOriginalFilename(), file.getSize(), file.getContentType());
+            log.info("S3 configuration: bucket={}, region={}", bucketName, region);
+            
             // Generate unique S3 key
             String s3Key = generateS3Key(file.getOriginalFilename(), memoryId, userId);
+            log.info("Generated S3 key: {}", s3Key);
             
             // Upload file to S3
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
@@ -44,7 +53,9 @@ public class S3Service {
                     .contentLength(file.getSize())
                     .build();
             
+            log.info("Uploading file to S3...");
             s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            log.info("File uploaded successfully to S3");
             
             // Create Media entity
             Media.MediaType mediaType = determineMediaType(file.getContentType());
@@ -60,12 +71,16 @@ public class S3Service {
                     .contentType(file.getContentType())
                     .build();
             
-            log.info("File uploaded successfully to S3: {}", s3Key);
+            log.info("Media entity created successfully: {}", media.getFileName());
             return media;
             
         } catch (S3Exception e) {
-            log.error("Error uploading file to S3: {}", e.getMessage());
-            throw new RuntimeException("Failed to upload file to S3", e);
+            log.error("S3 error uploading file: {}", e.getMessage());
+            log.error("S3 error details: errorCode={}", e.awsErrorDetails().errorCode());
+            throw new RuntimeException("Failed to upload file to S3: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Unexpected error uploading file: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to upload file: " + e.getMessage(), e);
         }
     }
     
@@ -180,7 +195,7 @@ public class S3Service {
      */
     public String generatePresignedUrl(String s3Key, long expirationInMinutes) {
         try {
-            PresignedGetObjectRequest presignedGetObjectRequest = PresignedGetObjectRequest.builder()
+            GetObjectPresignRequest getObjectPresignRequest = GetObjectPresignRequest.builder()
                     .signatureDuration(java.time.Duration.ofMinutes(expirationInMinutes))
                     .getObjectRequest(GetObjectRequest.builder()
                             .bucket(bucketName)
@@ -188,7 +203,7 @@ public class S3Service {
                             .build())
                     .build();
             
-            return s3Client.presignGetObject(presignedGetObjectRequest).url().toString();
+            return s3Presigner.presignGetObject(getObjectPresignRequest).url().toString();
             
         } catch (S3Exception e) {
             log.error("Error generating presigned URL: {}", e.getMessage());

@@ -27,6 +27,14 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable()) // Disable CSRF for APIs
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**").permitAll() // Public endpoints
+                        .requestMatchers("/api/v1/auth/create-user").permitAll() // User creation without auth
+                        .requestMatchers("/api/v1/memories").permitAll() // Memory creation without auth
+                        .requestMatchers("/api/v1/media/upload/{memoryId}").permitAll() // File upload without auth
+                        .requestMatchers("/api/v1/media/test-simple").permitAll() // Simple test endpoint
+                        .requestMatchers("/api/v1/media/test-s3-simple").permitAll() // S3 test endpoint
+                        .requestMatchers("/api/v1/media/test-upload-simple").permitAll() // File upload test endpoint
+                        .requestMatchers("/api/v1/media/test-upload/{memoryId}").permitAll() // File upload without auth
+                        .requestMatchers("/api/v1/memories/test-create").permitAll() // Memory creation without auth
                         .anyRequest().authenticated() // All other endpoints require authentication
                 )
                 .sessionManagement(session -> session

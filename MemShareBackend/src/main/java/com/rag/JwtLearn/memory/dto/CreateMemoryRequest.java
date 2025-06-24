@@ -23,8 +23,7 @@ public class CreateMemoryRequest {
     @NotBlank(message = "Title is required")
     private String title;
     
-    @NotNull(message = "Memory date is required")
-    private LocalDateTime memoryDate;
+    private LocalDateTime memoryDate = LocalDateTime.now(); // Default to current time
     
     private String location;
     

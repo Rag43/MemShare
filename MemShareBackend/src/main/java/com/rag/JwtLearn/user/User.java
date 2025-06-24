@@ -1,5 +1,6 @@
 package com.rag.JwtLearn.user;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.rag.JwtLearn.memoryGroup.MemoryGroup;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -30,6 +31,7 @@ public class User implements UserDetails {
     private String firstname;
     private String lastname;
     private String email;
+    @JsonIgnore
     private String password;
     @Enumerated(EnumType.STRING)
     private Role role;
@@ -37,6 +39,7 @@ public class User implements UserDetails {
     @ManyToMany(mappedBy = "users", fetch = FetchType.LAZY)
     @Builder.Default
     @EqualsAndHashCode.Exclude
+    @JsonIgnore
     private Set<MemoryGroup> groups = new HashSet<>();
 
     @Override

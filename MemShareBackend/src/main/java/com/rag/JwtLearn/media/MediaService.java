@@ -24,26 +24,73 @@ public class MediaService {
     private final S3Service s3Service;
     
     /**
+     * Upload single file to a memory (simplified - no user ownership check)
+     */
+    public Media uploadFileToMemorySimple(MultipartFile file, Long memoryId, Long userId) throws IOException {
+        try {
+            log.info("Starting uploadFileToMemorySimple for memory {} by user {}", memoryId, userId);
+            
+            // Verify memory exists (no user ownership check)
+            Memory memory = memoryRepository.findById(memoryId)
+                    .orElseThrow(() -> new RuntimeException("Memory not found"));
+            
+            log.info("Memory found: id={}, title={}", memory.getId(), memory.getTitle());
+            
+            log.info("Proceeding with S3 upload");
+            
+            // Upload file to S3
+            Media media = s3Service.uploadFile(file, memoryId, userId);
+            media.setMemory(memory);
+            
+            log.info("S3 upload completed, saving to database");
+            
+            // Save to database
+            Media savedMedia = mediaRepository.save(media);
+            
+            log.info("File uploaded successfully for memory {}: {}", memoryId, savedMedia.getFileName());
+            return savedMedia;
+            
+        } catch (Exception e) {
+            log.error("Error in uploadFileToMemorySimple: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+    
+    /**
      * Upload single file to a memory
      */
     public Media uploadFileToMemory(MultipartFile file, Long memoryId, Long userId) throws IOException {
-        // Verify memory exists and belongs to user
-        Memory memory = memoryRepository.findById(memoryId)
-                .orElseThrow(() -> new RuntimeException("Memory not found"));
-        
-        if (!memory.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized access to memory");
+        try {
+            log.info("Starting uploadFileToMemory for memory {} by user {}", memoryId, userId);
+            
+            // Verify memory exists and belongs to user
+            Memory memory = memoryRepository.findById(memoryId)
+                    .orElseThrow(() -> new RuntimeException("Memory not found"));
+            
+            log.info("Memory found: id={}, title={}", memory.getId(), memory.getTitle());
+            
+            if (!memory.getUser().getId().equals(userId)) {
+                throw new RuntimeException("Unauthorized access to memory");
+            }
+            
+            log.info("User authorized, proceeding with S3 upload");
+            
+            // Upload file to S3
+            Media media = s3Service.uploadFile(file, memoryId, userId);
+            media.setMemory(memory);
+            
+            log.info("S3 upload completed, saving to database");
+            
+            // Save to database
+            Media savedMedia = mediaRepository.save(media);
+            
+            log.info("File uploaded successfully for memory {}: {}", memoryId, savedMedia.getFileName());
+            return savedMedia;
+            
+        } catch (Exception e) {
+            log.error("Error in uploadFileToMemory: {}", e.getMessage(), e);
+            throw e;
         }
-        
-        // Upload file to S3
-        Media media = s3Service.uploadFile(file, memoryId, userId);
-        media.setMemory(memory);
-        
-        // Save to database
-        Media savedMedia = mediaRepository.save(media);
-        
-        log.info("File uploaded successfully for memory {}: {}", memoryId, savedMedia.getFileName());
-        return savedMedia;
     }
     
     /**

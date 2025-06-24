@@ -1,5 +1,6 @@
 package com.rag.JwtLearn.memory;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.rag.JwtLearn.media.Media;
 import com.rag.JwtLearn.user.User;
 import jakarta.persistence.*;
@@ -43,10 +44,12 @@ public class Memory {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
     private User user; // The user who created this memory
     
     @OneToMany(mappedBy = "memory", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("createdAt ASC")
+    @Builder.Default
     private List<Media> media = new ArrayList<>();
     
     @CreationTimestamp
@@ -59,17 +62,25 @@ public class Memory {
     
     // Helper methods for managing media
     public void addMedia(Media mediaItem) {
+        if (media == null) {
+            media = new ArrayList<>();
+        }
         media.add(mediaItem);
         mediaItem.setMemory(this);
     }
     
     public void removeMedia(Media mediaItem) {
-        media.remove(mediaItem);
-        mediaItem.setMemory(null);
+        if (media != null) {
+            media.remove(mediaItem);
+            mediaItem.setMemory(null);
+        }
     }
     
     // Helper method to get only images
     public List<Media> getImages() {
+        if (media == null) {
+            return new ArrayList<>();
+        }
         return media.stream()
                 .filter(m -> m.getMediaType() == Media.MediaType.IMAGE)
                 .toList();
@@ -77,6 +88,9 @@ public class Memory {
     
     // Helper method to get only videos
     public List<Media> getVideos() {
+        if (media == null) {
+            return new ArrayList<>();
+        }
         return media.stream()
                 .filter(m -> m.getMediaType() == Media.MediaType.VIDEO)
                 .toList();
@@ -84,11 +98,11 @@ public class Memory {
     
     // Helper method to check if memory has media
     public boolean hasMedia() {
-        return !media.isEmpty();
+        return media != null && !media.isEmpty();
     }
     
     // Helper method to get media count
     public int getMediaCount() {
-        return media.size();
+        return media != null ? media.size() : 0;
     }
 }

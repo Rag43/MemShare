@@ -1,5 +1,6 @@
 package com.rag.JwtLearn.media;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.rag.JwtLearn.memory.Memory;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -62,6 +63,7 @@ public class Media {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "memory_id", nullable = false)
+    @JsonIgnore
     private Memory memory;
     
     @CreationTimestamp

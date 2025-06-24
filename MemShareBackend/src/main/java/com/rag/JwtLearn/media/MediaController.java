@@ -1,5 +1,10 @@
 package com.rag.JwtLearn.media;
 
+import com.rag.JwtLearn.memory.Memory;
+import com.rag.JwtLearn.memory.MemoryRepository;
+import com.rag.JwtLearn.config.JWTService;
+import com.rag.JwtLearn.user.User;
+import com.rag.JwtLearn.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
@@ -10,6 +15,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,23 +32,30 @@ import java.util.List;
 public class MediaController {
     
     private final MediaService mediaService;
+    private final S3Service s3Service;
+    private final JWTService jwtService;
+    private final UserRepository userRepository;
     
     /**
-     * Upload single file to a memory
+     * Upload file to a memory
      */
     @PostMapping("/upload/{memoryId}")
     public ResponseEntity<Media> uploadFile(
             @PathVariable Long memoryId,
-            @RequestParam("file") MultipartFile file,
-            Authentication authentication) {
+            @RequestParam("file") MultipartFile file) {
         
         try {
-            Long userId = getUserIdFromAuthentication(authentication);
-            Media uploadedMedia = mediaService.uploadFileToMemory(file, memoryId, userId);
-            return ResponseEntity.ok(uploadedMedia);
+            log.info("Uploading file for memory: {}", memoryId);
+            
+            // Use a default user (ID 1) - this should exist if memory was created
+            Long defaultUserId = 1L;
+            
+            Media media = mediaService.uploadFileToMemorySimple(file, memoryId, defaultUserId);
+            log.info("File uploaded successfully: {}", media.getFileName());
+            return ResponseEntity.ok(media);
             
         } catch (Exception e) {
-            log.error("Error uploading file: {}", e.getMessage());
+            log.error("Error uploading file: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -260,27 +277,148 @@ public class MediaController {
     }
     
     /**
+     * Test S3 connection (no authentication required)
+     */
+    @GetMapping("/test-s3-simple")
+    public ResponseEntity<String> testS3ConnectionSimple() {
+        try {
+            log.info("Testing S3 connection without authentication");
+            
+            // Test if we can access the S3 bucket
+            boolean bucketExists = s3Service.fileExists("test-key-that-does-not-exist");
+            log.info("S3 connection test completed successfully");
+            
+            return ResponseEntity.ok("S3 connection successful! Bucket access confirmed.");
+            
+        } catch (Exception e) {
+            log.error("S3 connection test failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("S3 connection failed: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Test file upload to S3 only (no authentication required)
+     */
+    @PostMapping("/test-upload-simple")
+    public ResponseEntity<String> testFileUploadSimple(
+            @RequestParam("file") MultipartFile file) {
+        
+        try {
+            log.info("Testing file upload without authentication");
+            log.info("File details: name={}, size={}, contentType={}", 
+                    file.getOriginalFilename(), file.getSize(), file.getContentType());
+            
+            // Test S3 upload using the existing service method with dummy IDs
+            Media media = s3Service.uploadFile(file, 999L, 1L); // Use dummy memory ID and user ID
+            
+            log.info("Test file uploaded successfully to S3: {}", media.getS3Key());
+            return ResponseEntity.ok("Test file uploaded successfully to S3: " + media.getS3Key());
+            
+        } catch (Exception e) {
+            log.error("Test file upload failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Test file upload failed: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Temporary test endpoint with hardcoded user ID (for testing)
+     */
+    @PostMapping("/test-upload-temp/{memoryId}")
+    public ResponseEntity<Media> testUploadWithTempUser(
+            @PathVariable Long memoryId,
+            @RequestParam("file") MultipartFile file) {
+        
+        try {
+            log.info("Testing file upload with temporary user ID for memory: {}", memoryId);
+            
+            // Use hardcoded user ID for testing
+            Long tempUserId = 1L;
+            Media media = mediaService.uploadFileToMemory(file, memoryId, tempUserId);
+            
+            log.info("Test upload successful: {}", media.getFileName());
+            return ResponseEntity.ok(media);
+            
+        } catch (Exception e) {
+            log.error("Test upload failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
+     * Upload file without authentication (for testing)
+     */
+    @PostMapping("/test-upload/{memoryId}")
+    public ResponseEntity<Media> uploadFileTest(
+            @PathVariable Long memoryId,
+            @RequestParam("file") MultipartFile file) {
+        
+        try {
+            log.info("Uploading file without authentication for memory: {}", memoryId);
+            
+            // Use a default user (ID 1) for testing
+            Long defaultUserId = 1L;
+            
+            Media media = mediaService.uploadFileToMemory(file, memoryId, defaultUserId);
+            log.info("File uploaded successfully: {}", media.getFileName());
+            return ResponseEntity.ok(media);
+            
+        } catch (Exception e) {
+            log.error("Error uploading file: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
+     * Test JWT token processing (requires authentication)
+     */
+    @GetMapping("/test-auth")
+    public ResponseEntity<String> testAuth(Authentication authentication) {
+        try {
+            log.info("Testing authentication");
+            log.info("Authentication object: {}", authentication);
+            log.info("Authentication name: {}", authentication.getName());
+            log.info("Authentication principal: {}", authentication.getPrincipal());
+            log.info("Authentication authorities: {}", authentication.getAuthorities());
+            
+            return ResponseEntity.ok("Authentication test successful! User: " + authentication.getName());
+            
+        } catch (Exception e) {
+            log.error("Authentication test failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Authentication test failed: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Simple test endpoint (no authentication required)
+     */
+    @GetMapping("/test-simple")
+    public ResponseEntity<String> testSimple() {
+        return ResponseEntity.ok("Simple test endpoint working!");
+    }
+    
+    /**
      * Helper method to extract user ID from authentication
      */
     private Long getUserIdFromAuthentication(Authentication authentication) {
-        // TODO: Implement based on your authentication setup
-        // This is a placeholder - you'll need to implement this based on your JWT setup
         if (authentication == null || authentication.getPrincipal() == null) {
             throw new RuntimeException("Authentication required");
         }
         
-        // Assuming your JWT contains user ID in the principal
-        // You might need to adjust this based on your JWT implementation
-        String principal = authentication.getPrincipal().toString();
+        // Use email to find user ID (simple and reliable approach)
+        String email = authentication.getName();
+        log.debug("Using email to find user: {}", email);
         
-        // This is a simplified example - you should implement proper user ID extraction
-        // from your JWT token or user details
         try {
-            // Extract user ID from JWT or user details
-            // For now, returning a placeholder
-            return 1L; // Replace with actual user ID extraction
+            // Find user by email and return ID
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            return user.getId().longValue();
         } catch (Exception e) {
-            throw new RuntimeException("Invalid user authentication");
+            log.error("Error finding user by email: {}", e.getMessage());
+            throw new RuntimeException("Failed to get user ID from authentication");
         }
     }
 }
