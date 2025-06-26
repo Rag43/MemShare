@@ -2,6 +2,8 @@ package com.rag.JwtLearn.memory;
 
 import com.rag.JwtLearn.memory.Memory;
 import com.rag.JwtLearn.memory.dto.CreateMemoryRequest;
+import com.rag.JwtLearn.memory.dto.UpdateMemoryRequest;
+import com.rag.JwtLearn.memory.dto.MemoryWithGroupResponse;
 import com.rag.JwtLearn.user.User;
 import com.rag.JwtLearn.user.UserRepository;
 import com.rag.JwtLearn.user.Role;
@@ -19,37 +21,33 @@ import java.time.LocalDateTime;
 
 import java.util.List;
 
+import com.rag.JwtLearn.memoryGroup.MemoryGroupRepository;
+import com.rag.JwtLearn.memory.dto.MemoryResponse;
+
 @RestController
 @RequestMapping("/api/v1/memories")
 @RequiredArgsConstructor
 @Slf4j
+@CrossOrigin(origins = "*")
 public class MemoryController {
 
     private final MemoryRepository memoryRepository;
     private final UserRepository userRepository;
     private final JWTService jwtService;
+    private final MemoryService memoryService;
+    private final MemoryGroupRepository memoryGroupRepository;
 
     /**
      * Create memory
      */
     @PostMapping
-    public ResponseEntity<Memory> createMemory(@RequestBody CreateMemoryRequest request) {
+    public ResponseEntity<Memory> createMemory(
+            @RequestBody CreateMemoryRequest request,
+            Authentication authentication) {
         try {
             log.info("Creating memory");
             
-            // Find or create a default user
-            User defaultUser = userRepository.findById(1)
-                    .orElseGet(() -> {
-                        log.info("Default user not found, creating one");
-                        User newUser = User.builder()
-                                .firstname("Default")
-                                .lastname("User")
-                                .email("default@example.com")
-                                .password("$2a$10$dummy") // Dummy password
-                                .role(Role.USER)
-                                .build();
-                        return userRepository.save(newUser);
-                    });
+            User currentUser = getCurrentUser(authentication);
             
             Memory memory = Memory.builder()
                     .content(request.getContent())
@@ -57,7 +55,8 @@ public class MemoryController {
                     .memoryDate(request.getMemoryDate() != null ? request.getMemoryDate() : LocalDateTime.now())
                     .location(request.getLocation())
                     .isPublic(request.getIsPublic() != null ? request.getIsPublic() : false)
-                    .user(defaultUser)
+                    .displayPic(request.getDisplayPic())
+                    .user(currentUser)
                     .build();
             
             Memory savedMemory = memoryRepository.save(memory);
@@ -88,10 +87,87 @@ public class MemoryController {
     }
 
     @GetMapping("/my-memories")
-    public ResponseEntity<List<Memory>> getMyMemories(Authentication authentication) {
+    public ResponseEntity<List<MemoryWithGroupResponse>> getMyMemories(Authentication authentication) {
         User user = getCurrentUser(authentication);
-        List<Memory> memories = memoryRepository.findByUserId(user.getId());
+        List<MemoryWithGroupResponse> memories = memoryService.getAllMemoriesForUser(user);
         return ResponseEntity.ok(memories);
+    }
+
+    @GetMapping("/group/{groupId}")
+    public ResponseEntity<List<MemoryResponse>> getMemoriesByGroup(
+            @PathVariable Long groupId,
+            Authentication authentication) {
+        
+        User currentUser = getCurrentUser(authentication);
+        List<Memory> memories = memoryService.getMemoriesByGroup(groupId, currentUser);
+        
+        // Convert to MemoryResponse DTOs
+        List<MemoryResponse> memoryResponses = memories.stream()
+                .map(memory -> MemoryResponse.builder()
+                        .id(memory.getId())
+                        .title(memory.getTitle())
+                        .content(memory.getContent())
+                        .memoryDate(memory.getMemoryDate())
+                        .location(memory.getLocation())
+                        .isPublic(memory.getIsPublic())
+                        .displayPic(memory.getDisplayPic())
+                        .userId(memory.getUser().getId())
+                        .createdAt(memory.getCreatedAt())
+                        .updatedAt(memory.getUpdatedAt())
+                        .media(memory.getMedia())
+                        .build())
+                .toList();
+        
+        return ResponseEntity.ok(memoryResponses);
+    }
+
+    @PutMapping("/{memoryId}")
+    public ResponseEntity<Memory> updateMemory(
+            @PathVariable Long memoryId,
+            @RequestBody UpdateMemoryRequest request,
+            Authentication authentication) {
+        
+        try {
+            log.info("Updating memory with ID: {}", memoryId);
+            
+            User currentUser = getCurrentUser(authentication);
+            Memory memory = memoryRepository.findById(memoryId)
+                    .orElseThrow(() -> new RuntimeException("Memory not found"));
+            
+            // Check if user owns the memory
+            if (!memory.getUser().getId().equals(currentUser.getId())) {
+                log.warn("Unauthorized update attempt for memory {} by user {}", memoryId, currentUser.getId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
+            // Update fields if provided
+            if (request.getTitle() != null) {
+                memory.setTitle(request.getTitle());
+            }
+            if (request.getContent() != null) {
+                memory.setContent(request.getContent());
+            }
+            if (request.getMemoryDate() != null) {
+                memory.setMemoryDate(request.getMemoryDate());
+            }
+            if (request.getLocation() != null) {
+                memory.setLocation(request.getLocation());
+            }
+            if (request.getDisplayPic() != null) {
+                memory.setDisplayPic(request.getDisplayPic());
+            }
+            
+            Memory updatedMemory = memoryRepository.save(memory);
+            log.info("Memory updated successfully: {}", memoryId);
+            return ResponseEntity.ok(updatedMemory);
+            
+        } catch (RuntimeException e) {
+            log.error("Error updating memory {}: {}", memoryId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            log.error("Unexpected error updating memory {}: {}", memoryId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     /**

@@ -111,11 +111,40 @@ public class MemoryGroupService {
         return convertToGroupResponse(savedGroup);
     }
 
+    public GroupResponse removeUserFromGroup(Long groupId, Integer userId) {
+        MemoryGroup group = memoryGroupRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Group not found with id: " + groupId));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+
+        group.removeUser(user);
+
+        MemoryGroup savedGroup = memoryGroupRepository.save(group);
+        return convertToGroupResponse(savedGroup);
+    }
+
     public void deleteGroup(Long groupId) {
         if (!memoryGroupRepository.existsById(groupId)) {
             throw new RuntimeException("Group not found with id: " + groupId);
         }
         memoryGroupRepository.deleteById(groupId);
+    }
+
+    public List<GroupResponse.UserSummary> searchUsers(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return List.of();
+        }
+        
+        return userRepository.searchUsers(query.trim())
+                .stream()
+                .map(user -> GroupResponse.UserSummary.builder()
+                        .id(user.getId())
+                        .firstname(user.getFirstname())
+                        .lastname(user.getLastname())
+                        .email(user.getEmail())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     private GroupResponse convertToGroupResponse(MemoryGroup group) {

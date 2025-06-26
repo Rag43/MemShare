@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
+import MainMenu from './components/MainMenu';
+import MemGroups from './components/MemGroups';
+import MyMemories from './components/MyMemories';
 
 const initialForm = {
   firstname: '',
@@ -15,6 +18,20 @@ function App() {
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ firstname: string } | null>(null);
+  const [currentScreen, setCurrentScreen] = useState('main-menu');
+
+  // Check if user is already authenticated on component mount
+  useEffect(() => {
+    const token = localStorage.getItem('jwt_token');
+    if (token) {
+      // You might want to validate the token here
+      setIsAuthenticated(true);
+      // For now, we'll use a default user name
+      setCurrentUser({ firstname: 'User' });
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -36,9 +53,13 @@ function App() {
       });
       const data = await res.json();
       if (res.ok) {
-        setMessage(isLogin ? 'Login successful!' : 'User created! You can now log in.');
         if (isLogin && data.token) {
           localStorage.setItem('jwt_token', data.token);
+          setIsAuthenticated(true);
+          setCurrentUser({ firstname: data.firstname || 'User' });
+          setMessage('Login successful!');
+        } else {
+          setMessage('User created! You can now log in.');
         }
       } else {
         setMessage(data.message || 'Something went wrong.');
@@ -50,6 +71,62 @@ function App() {
     }
   };
 
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setCurrentScreen('main-menu');
+    setForm(initialForm);
+    setMessage('');
+  };
+
+  const handleNavigate = (screen: string) => {
+    setCurrentScreen(screen);
+    
+    // Handle specific navigation
+    if (screen === 'memgroups') {
+      // MemGroups screen will be handled in the render logic
+    } else if (screen === 'my-memories') {
+      // MyMemories screen will be handled in the render logic
+    } else {
+      // For other screens, show alert for now
+      alert(`Navigating to ${screen} - This feature is coming soon!`);
+    }
+  };
+
+  const handleBack = () => {
+    setCurrentScreen('main-menu');
+  };
+
+  // If user is authenticated, show appropriate screen
+  if (isAuthenticated) {
+    if (currentScreen === 'memgroups') {
+      return (
+        <MemGroups 
+          onNavigate={handleNavigate}
+          onBack={handleBack}
+        />
+      );
+    }
+    
+    if (currentScreen === 'my-memories') {
+      return (
+        <MyMemories 
+          onBack={handleBack}
+        />
+      );
+    }
+    
+    // Default to main menu
+    return (
+      <MainMenu 
+        username={currentUser?.firstname || 'User'}
+        onNavigate={handleNavigate}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  // Show login/register form
   return (
     <div className="memshare-bg">
       <div className="welcome-banner">

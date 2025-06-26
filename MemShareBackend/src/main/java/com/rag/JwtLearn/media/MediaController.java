@@ -20,6 +20,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import jakarta.servlet.http.HttpServletRequest;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,6 +30,7 @@ import java.util.List;
 @RequestMapping("/api/v1/media")
 @RequiredArgsConstructor
 @Slf4j
+@CrossOrigin(origins = "*")
 public class MediaController {
     
     private final MediaService mediaService;
@@ -42,15 +44,15 @@ public class MediaController {
     @PostMapping("/upload/{memoryId}")
     public ResponseEntity<Media> uploadFile(
             @PathVariable Long memoryId,
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
         
         try {
             log.info("Uploading file for memory: {}", memoryId);
             
-            // Use a default user (ID 1) - this should exist if memory was created
-            Long defaultUserId = 1L;
+            Long userId = getUserIdFromAuthentication(authentication);
             
-            Media media = mediaService.uploadFileToMemorySimple(file, memoryId, defaultUserId);
+            Media media = mediaService.uploadFileToMemory(file, memoryId, userId);
             log.info("File uploaded successfully: {}", media.getFileName());
             return ResponseEntity.ok(media);
             
@@ -282,15 +284,29 @@ public class MediaController {
     @GetMapping("/test-s3-simple")
     public ResponseEntity<String> testS3ConnectionSimple() {
         try {
-            log.info("Testing S3 connection without authentication");
+            log.info("=== S3 CONNECTION TEST START ===");
+            log.info("Testing S3 connection with bucket: {}", s3Service.getBucketName());
+            log.info("S3 region: {}", s3Service.getRegion());
             
-            // Test if we can access the S3 bucket
-            boolean bucketExists = s3Service.fileExists("test-key-that-does-not-exist");
-            log.info("S3 connection test completed successfully");
+            // Skip bucket listing test since user has explicit deny for s3:ListAllMyBuckets
+            log.info("Skipping bucket listing test due to explicit deny policy");
             
+            // Test: Try to access the specific bucket
+            try {
+                log.info("Testing bucket access...");
+                boolean bucketExists = s3Service.fileExists("test-key-that-does-not-exist");
+                log.info("Bucket access successful - bucket exists and is accessible");
+            } catch (Exception e) {
+                log.error("Bucket access failed: {}", e.getMessage());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("S3 bucket access failed: " + e.getMessage());
+            }
+            
+            log.info("=== S3 CONNECTION TEST END ===");
             return ResponseEntity.ok("S3 connection successful! Bucket access confirmed.");
             
         } catch (Exception e) {
+            log.error("=== S3 CONNECTION TEST ERROR ===");
             log.error("S3 connection test failed: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("S3 connection failed: " + e.getMessage());
@@ -397,6 +413,110 @@ public class MediaController {
     @GetMapping("/test-simple")
     public ResponseEntity<String> testSimple() {
         return ResponseEntity.ok("Simple test endpoint working!");
+    }
+    
+    /**
+     * Test file upload with detailed logging
+     */
+    @PostMapping("/test-upload-debug/{memoryId}")
+    public ResponseEntity<String> testUploadDebug(
+            @PathVariable Long memoryId,
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
+        
+        try {
+            log.info("=== DEBUG UPLOAD START ===");
+            log.info("Memory ID: {}", memoryId);
+            log.info("File: name={}, size={}, contentType={}", 
+                    file.getOriginalFilename(), file.getSize(), file.getContentType());
+            
+            if (authentication != null) {
+                log.info("Authentication: name={}, principal={}", 
+                        authentication.getName(), authentication.getPrincipal());
+            } else {
+                log.warn("No authentication provided");
+            }
+            
+            Long userId = getUserIdFromAuthentication(authentication);
+            log.info("User ID: {}", userId);
+            
+            Media media = mediaService.uploadFileToMemory(file, memoryId, userId);
+            log.info("Upload successful: mediaId={}, fileName={}, s3Key={}", 
+                    media.getId(), media.getFileName(), media.getS3Key());
+            
+            log.info("=== DEBUG UPLOAD END ===");
+            return ResponseEntity.ok("Upload successful: " + media.getFileName());
+            
+        } catch (Exception e) {
+            log.error("=== DEBUG UPLOAD ERROR ===");
+            log.error("Error: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Upload failed: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Simple S3 upload test (no authentication, no database)
+     */
+    @PostMapping("/test-s3-upload-only")
+    public ResponseEntity<String> testS3UploadOnly(@RequestParam("file") MultipartFile file) {
+        try {
+            log.info("=== S3 UPLOAD TEST START ===");
+            log.info("File: name={}, size={}, contentType={}", 
+                    file.getOriginalFilename(), file.getSize(), file.getContentType());
+            log.info("S3 config: bucket={}, region={}", 
+                    s3Service.getBucketName(), s3Service.getRegion());
+            
+            // Test direct S3 upload without database
+            String s3Key = "test-uploads/" + System.currentTimeMillis() + "-" + file.getOriginalFilename();
+            
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(s3Service.getBucketName())
+                    .key(s3Key)
+                    .contentType(file.getContentType())
+                    .contentLength(file.getSize())
+                    .acl(ObjectCannedACL.PUBLIC_READ)
+                    .build();
+            
+            log.info("Uploading to S3 key: {}", s3Key);
+            s3Service.getS3Client().putObject(putObjectRequest, 
+                    RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            
+            log.info("S3 upload successful!");
+            log.info("=== S3 UPLOAD TEST END ===");
+            
+            return ResponseEntity.ok("S3 upload successful! Key: " + s3Key);
+            
+        } catch (Exception e) {
+            log.error("=== S3 UPLOAD TEST ERROR ===");
+            log.error("Error: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("S3 upload failed: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Test AWS credentials (no S3 operations)
+     */
+    @GetMapping("/test-credentials")
+    public ResponseEntity<String> testCredentials() {
+        try {
+            log.info("=== CREDENTIALS TEST START ===");
+            
+            // Just check if the S3 client was created successfully
+            var s3Client = s3Service.getS3Client();
+            log.info("S3 client created successfully");
+            log.info("S3 client configuration: {}", s3Client.serviceClientConfiguration());
+            
+            log.info("=== CREDENTIALS TEST END ===");
+            return ResponseEntity.ok("S3 client created successfully. Configuration loaded.");
+            
+        } catch (Exception e) {
+            log.error("=== CREDENTIALS TEST ERROR ===");
+            log.error("Credentials test failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Credentials test failed: " + e.getMessage());
+        }
     }
     
     /**

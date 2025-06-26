@@ -1,6 +1,7 @@
 package com.rag.JwtLearn.media;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.rag.JwtLearn.memory.Memory;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -44,6 +45,7 @@ public class Media {
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @JsonProperty("mediaType")
     private MediaType mediaType; // IMAGE, VIDEO, AUDIO, DOCUMENT
     
     @Column

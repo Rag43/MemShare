@@ -42,6 +42,9 @@ public class Memory {
     @Column(name = "is_public")
     private Boolean isPublic = false; // Whether the memory is public or private
     
+    @Column(name = "display_pic")
+    private String displayPic; // S3 key for the display picture
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     @JsonIgnore

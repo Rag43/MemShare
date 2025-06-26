@@ -36,10 +36,11 @@ public class S3Service {
      */
     public Media uploadFile(MultipartFile file, Long memoryId, Long userId) throws IOException {
         try {
-            log.info("Starting file upload for memory {} by user {}", memoryId, userId);
+            log.info("=== S3 UPLOAD START ===");
             log.info("File details: name={}, size={}, contentType={}", 
                     file.getOriginalFilename(), file.getSize(), file.getContentType());
             log.info("S3 configuration: bucket={}, region={}", bucketName, region);
+            log.info("Memory ID: {}, User ID: {}", memoryId, userId);
             
             // Generate unique S3 key
             String s3Key = generateS3Key(file.getOriginalFilename(), memoryId, userId);
@@ -53,12 +54,16 @@ public class S3Service {
                     .contentLength(file.getSize())
                     .build();
             
-            log.info("Uploading file to S3...");
+            log.info("PutObjectRequest created: bucket={}, key={}, contentType={}, contentLength={}", 
+                    putObjectRequest.bucket(), putObjectRequest.key(), putObjectRequest.contentType(), putObjectRequest.contentLength());
+            
+            log.info("Starting S3 upload...");
             s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
-            log.info("File uploaded successfully to S3");
+            log.info("S3 upload completed successfully!");
             
             // Create Media entity
             Media.MediaType mediaType = determineMediaType(file.getContentType());
+            log.info("Determined media type: {}", mediaType);
             
             Media media = Media.builder()
                     .fileName(generateFileName(file.getOriginalFilename()))
@@ -71,14 +76,20 @@ public class S3Service {
                     .contentType(file.getContentType())
                     .build();
             
-            log.info("Media entity created successfully: {}", media.getFileName());
+            log.info("Media entity created: fileName={}, s3Key={}, s3Bucket={}", 
+                    media.getFileName(), media.getS3Key(), media.getS3Bucket());
+            log.info("=== S3 UPLOAD END ===");
             return media;
             
         } catch (S3Exception e) {
+            log.error("=== S3 UPLOAD ERROR ===");
             log.error("S3 error uploading file: {}", e.getMessage());
-            log.error("S3 error details: errorCode={}", e.awsErrorDetails().errorCode());
+            log.error("S3 error details: errorCode={}, errorMessage={}", 
+                    e.awsErrorDetails().errorCode(), e.awsErrorDetails().errorMessage());
+            log.error("S3 error request ID: {}", e.requestId());
             throw new RuntimeException("Failed to upload file to S3: " + e.getMessage(), e);
         } catch (Exception e) {
+            log.error("=== S3 UPLOAD ERROR ===");
             log.error("Unexpected error uploading file: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to upload file: " + e.getMessage(), e);
         }
@@ -297,5 +308,18 @@ public class S3Service {
             log.error("Error getting file metadata: {}", e.getMessage());
             throw new RuntimeException("Failed to get file metadata", e);
         }
+    }
+
+    // Getter methods for testing
+    public String getBucketName() {
+        return bucketName;
+    }
+
+    public String getRegion() {
+        return region;
+    }
+
+    public S3Client getS3Client() {
+        return s3Client;
     }
 }

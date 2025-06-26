@@ -3,6 +3,8 @@ package com.rag.JwtLearn.memoryGroup;
 import com.rag.JwtLearn.memoryGroup.dto.AddUsersRequest;
 import com.rag.JwtLearn.memoryGroup.dto.CreateGroupRequest;
 import com.rag.JwtLearn.memoryGroup.dto.GroupResponse;
+import com.rag.JwtLearn.memoryGroup.dto.GroupResponse.UserSummary;
+import com.rag.JwtLearn.memoryGroup.dto.RemoveUserRequest;
 import com.rag.JwtLearn.user.User;
 import com.rag.JwtLearn.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -83,10 +85,30 @@ public class MemoryGroupController {
         return ResponseEntity.ok(group);
     }
 
+    @PostMapping("/{groupId}/remove-user")
+    public ResponseEntity<GroupResponse> removeUserFromGroup(
+            @PathVariable Long groupId,
+            @RequestBody RemoveUserRequest request) {
+        GroupResponse group = memoryGroupService.removeUserFromGroup(groupId, request.getUserId());
+        return ResponseEntity.ok(group);
+    }
+
     @DeleteMapping("/{groupId}")
     public ResponseEntity<Void> deleteGroup(@PathVariable Long groupId) {
         memoryGroupService.deleteGroup(groupId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/search-users")
+    public ResponseEntity<List<UserSummary>> searchUsers(@RequestParam String query) {
+        List<UserSummary> users = memoryGroupService.searchUsers(query);
+        return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/users/search")
+    public ResponseEntity<List<UserSummary>> searchUsersForGroup(@RequestParam String query) {
+        List<UserSummary> users = memoryGroupService.searchUsers(query);
+        return ResponseEntity.ok(users);
     }
 
     private User getCurrentUser() {

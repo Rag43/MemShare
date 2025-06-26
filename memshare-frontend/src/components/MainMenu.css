@@ -1,0 +1,98 @@
+.main-menu-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  text-align: center;
+}
+
+.main-menu-title {
+  font-size: 3.5rem;
+  font-weight: 900;
+  color: #2563eb;
+  margin-bottom: 1rem;
+  letter-spacing: 1px;
+  user-select: none;
+}
+
+.welcome-message {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: #e53e3e;
+  margin-bottom: 3rem;
+  letter-spacing: -0.5px;
+}
+
+.welcome-message .username {
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  width: 100%;
+  max-width: 300px;
+}
+
+.menu-button {
+  background: #fff;
+  color: #2d3748;
+  border: 2px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1rem 1.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.menu-button:hover {
+  background: #f8fafc;
+  border-color: #2563eb;
+  color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+}
+
+.menu-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.logout-button {
+  margin-top: 1rem;
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.logout-button:hover {
+  background: #fee2e2;
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+  .main-menu-title {
+    font-size: 2.8rem;
+  }
+  
+  .welcome-message {
+    font-size: 1.5rem;
+  }
+  
+  .menu-buttons {
+    max-width: 280px;
+  }
+  
+  .menu-button {
+    padding: 0.9rem 1.3rem;
+    font-size: 1rem;
+  }
+} 

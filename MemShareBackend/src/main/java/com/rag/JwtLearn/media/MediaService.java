@@ -62,14 +62,18 @@ public class MediaService {
     public Media uploadFileToMemory(MultipartFile file, Long memoryId, Long userId) throws IOException {
         try {
             log.info("Starting uploadFileToMemory for memory {} by user {}", memoryId, userId);
+            log.info("File details: name={}, size={}, contentType={}", 
+                    file.getOriginalFilename(), file.getSize(), file.getContentType());
             
             // Verify memory exists and belongs to user
             Memory memory = memoryRepository.findById(memoryId)
                     .orElseThrow(() -> new RuntimeException("Memory not found"));
             
-            log.info("Memory found: id={}, title={}", memory.getId(), memory.getTitle());
+            log.info("Memory found: id={}, title={}, user={}", memory.getId(), memory.getTitle(), memory.getUser().getId());
             
-            if (!memory.getUser().getId().equals(userId)) {
+            // Convert Long userId to Integer for comparison with User.id (which is Integer)
+            if (!memory.getUser().getId().equals(userId.intValue())) {
+                log.error("User {} is not authorized to access memory {} (owned by user {})", userId, memoryId, memory.getUser().getId());
                 throw new RuntimeException("Unauthorized access to memory");
             }
             
@@ -77,14 +81,16 @@ public class MediaService {
             
             // Upload file to S3
             Media media = s3Service.uploadFile(file, memoryId, userId);
+            log.info("S3 upload completed, media created: {}", media.getFileName());
             media.setMemory(memory);
             
-            log.info("S3 upload completed, saving to database");
+            log.info("Saving media to database...");
             
             // Save to database
             Media savedMedia = mediaRepository.save(media);
             
             log.info("File uploaded successfully for memory {}: {}", memoryId, savedMedia.getFileName());
+            log.info("Saved media ID: {}, S3 Key: {}", savedMedia.getId(), savedMedia.getS3Key());
             return savedMedia;
             
         } catch (Exception e) {
@@ -101,7 +107,8 @@ public class MediaService {
         Memory memory = memoryRepository.findById(memoryId)
                 .orElseThrow(() -> new RuntimeException("Memory not found"));
         
-        if (!memory.getUser().getId().equals(userId)) {
+        // Convert Long userId to Integer for comparison with User.id (which is Integer)
+        if (!memory.getUser().getId().equals(userId.intValue())) {
             throw new RuntimeException("Unauthorized access to memory");
         }
         
@@ -129,7 +136,8 @@ public class MediaService {
         Memory memory = memoryRepository.findById(memoryId)
                 .orElseThrow(() -> new RuntimeException("Memory not found"));
         
-        if (!memory.getUser().getId().equals(userId)) {
+        // Convert Long userId to Integer for comparison with User.id (which is Integer)
+        if (!memory.getUser().getId().equals(userId.intValue())) {
             throw new RuntimeException("Unauthorized access to memory");
         }
         
@@ -153,7 +161,8 @@ public class MediaService {
         Memory memory = memoryRepository.findById(memoryId)
                 .orElseThrow(() -> new RuntimeException("Memory not found"));
         
-        if (!memory.getUser().getId().equals(userId)) {
+        // Convert Long userId to Integer for comparison with User.id (which is Integer)
+        if (!memory.getUser().getId().equals(userId.intValue())) {
             throw new RuntimeException("Unauthorized access to memory");
         }
         
@@ -168,7 +177,8 @@ public class MediaService {
         Media media = mediaRepository.findById(mediaId)
                 .orElseThrow(() -> new RuntimeException("Media not found"));
         
-        if (!media.getMemory().getUser().getId().equals(userId)) {
+        // Convert Long userId to Integer for comparison with User.id (which is Integer)
+        if (!media.getMemory().getUser().getId().equals(userId.intValue())) {
             throw new RuntimeException("Unauthorized access to media");
         }
         
@@ -221,7 +231,8 @@ public class MediaService {
         Memory memory = memoryRepository.findById(memoryId)
                 .orElseThrow(() -> new RuntimeException("Memory not found"));
         
-        if (!memory.getUser().getId().equals(userId)) {
+        // Convert Long userId to Integer for comparison with User.id (which is Integer)
+        if (!memory.getUser().getId().equals(userId.intValue())) {
             throw new RuntimeException("Unauthorized access to memory");
         }
         
@@ -261,7 +272,8 @@ public class MediaService {
         Memory memory = memoryRepository.findById(memoryId)
                 .orElseThrow(() -> new RuntimeException("Memory not found"));
         
-        if (!memory.getUser().getId().equals(userId)) {
+        // Convert Long userId to Integer for comparison with User.id (which is Integer)
+        if (!memory.getUser().getId().equals(userId.intValue())) {
             throw new RuntimeException("Unauthorized access to memory");
         }
         
