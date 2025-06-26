@@ -28,9 +28,9 @@ MemShare is a collaborative memory-sharing platform where users can create group
 
 ## Tech Stack
 - **Frontend:** React (TypeScript, Create React App)
-- **Backend:** Java (Spring Boot)
+- **Backend:** Spring Boot, Spring Security (Java)
 - **Database:** PostgreSQL (configurable)
-- **Media Storage:** AWS S3 or local (configurable)
+- **Media Storage:** AWS S3 (configurable)
 - **Authentication:** JWT
 
 ---
