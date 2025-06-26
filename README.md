@@ -138,10 +138,5 @@ Manage group members and delete groups.
 
 ---
 
-## License
-[MIT](LICENSE) (or your preferred license)
-
----
-
 **Note:**
 - For more details, see the individual READMEs in the frontend and backend folders. 
